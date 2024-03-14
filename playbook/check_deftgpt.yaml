@@ -1,0 +1,39 @@
+- name: check deftgpt service
+  hosts: ubuntu-etl-01
+  tasks:
+    - name: Convert parameters
+      set_fact:
+        feishu_url: "{{ deftgpt_feishu_webhook_url }}"
+
+    - name: Run python script
+      command: /root/anaconda3/bin/python /home/jerry/check_deftgpt_service.py
+      register: result
+
+    - name: Show script output
+      debug: msg="{{ result.stdout }}"
+
+    - name: Send Feishu message
+      uri:
+        url: "{{ feishu_url }}"
+        method: POST
+        headers:
+          Content-Type: application/json
+        body_format: json
+        body:
+          msg_type: interactive
+          card:
+            header:
+              title:
+                tag: plain_text
+                content: "Exception: the deftgpt server doesn't work well"
+            elements:
+              - tag: div
+                text:
+                  content: |
+                    * name: {{ inventory_hostname }}  
+                    * host: {{ ansible_ssh_host }}                 
+                    * content: {{ result.stdout_lines }}
+                  tag: lark_md
+
+        return_content: true
+      when: (result.stdout.find('Everything is working properly') < 0) or result.failed

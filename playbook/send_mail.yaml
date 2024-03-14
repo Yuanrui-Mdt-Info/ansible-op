@@ -1,0 +1,26 @@
+- hosts:
+    - localhost
+  tasks:
+    - name: Get username variable using shell
+      shell: echo $username
+      register: username
+
+    - name: Get password variable using shell
+      shell: echo $password
+      register: password
+
+    - name: Alarm email through Internal SMTP Server 
+      mail:
+        host: email-smtp.us-east-1.amazonaws.com
+        port: 587
+        username: {{ username.stdout }}
+        password: {{ password.stdout }}
+        subject: {{ subject }}
+        body: {{ body }}
+        from: noreply@daspire.com
+        to:
+        - liweizhong@nekteck.com
+        - jerry-529@nekteck.com
+        cc: jerry <jerry-529@nekteck.com>
+        charset: us-ascii
+      delegate_to: localhost

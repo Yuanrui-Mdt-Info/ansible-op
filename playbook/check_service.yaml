@@ -1,0 +1,65 @@
+- name: Check Java services one by one
+  hosts: all
+  tasks:
+    - name: Convert string to list
+      set_fact:
+        services_list: "{{ java_services.split('|') }}"
+        current_host: "{{ ansible_host }}"
+        current_server_name: "{{ name }}"
+        feishu_url: "{{ feishu_webhook_url }}"
+
+    - name: Check Java service
+      shell: ps -ef | grep -F "{{ item }}" | grep -v grep
+      register: result
+      failed_when: false
+      changed_when: false
+      loop: "{{ services_list }}"
+      ignore_errors: true
+
+    - name: Send WeChat message
+      uri:
+        url: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=53d0852c-2dd2-4c9b-86c9-7d332e693263"
+        method: POST
+        body_format: json
+        body:
+          msgtype: markdown
+          markdown:
+            content: |
+              ## Exception: some services are not running 
+
+              * host: {{ current_host }}
+              
+              * content: Service {{ item.item }} is not running
+
+          mentioned_list: ["@all"]
+            
+        return_content: true
+      loop: "{{ result.results }}"
+      when: item.rc != 0
+
+    - name: Send Feishu message
+      uri:
+        url: "{{ feishu_url }}"
+        method: POST
+        headers:
+          Content-Type: application/json
+        body_format: json
+        body:
+          msg_type: interactive
+          card:
+            header:
+              title:
+                tag: plain_text
+                content: "Exception: service is down"
+            elements:
+              - tag: div
+                text:
+                  content: |
+                    * host: {{ current_server_name }}
+                    
+                    * content: Service {{ item.item }} is not running
+                  tag: lark_md
+
+        return_content: true
+      loop: "{{ result.results }}"
+      when: item.rc != 0

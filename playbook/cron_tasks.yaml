@@ -1,0 +1,5 @@
+---
+  - hosts: all
+    tasks:
+    - name: sync time 
+      cron: name="playbook" minute="*/5" job="/sbin/ntpdate ntp1.aliyun.com >/dev/null 2>&1" state=present

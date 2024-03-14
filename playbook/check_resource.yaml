@@ -1,0 +1,119 @@
+---
+- name: Statistics of CPU Memory Disk Utilization
+  hosts: all
+  become: no
+  remote_user: "centos"
+  gather_facts: no
+  tasks:
+    - name: Convert parameters
+      set_fact:
+        feishu_url: "{{ feishu_webhook_url }}"
+    
+    - name: Get username variable using shell
+      shell: echo $username
+      register: username
+
+    - name: Get password variable using shell
+      shell: echo $password
+      register: password
+
+    - name: Test SSH connection
+      wait_for_connection:
+        timeout: 10
+      register: ssh_result
+      ignore_errors: true
+    - debug: var=ssh_result
+
+    - name: Send mail while ssh can't be connected 
+      mail:
+        host: email-smtp.us-east-1.amazonaws.com
+        port: 587
+        username: {{ username.stdout }}
+        password: {{ password.stdout }}
+        subject: "SSH connection failed on {{ inventory_hostname }}"
+        body: "SSH connection failed on {{ ansible_ssh_host }}:{{ ansible_ssh_port }}. Please check."
+        from: noreply@daspire.com
+        to:
+        - liweizhong@nekteck.com
+        cc: jerry <jerry-529@nekteck.com>
+      # 仅当连接SSH失败时触发邮件发送
+      delegate_to: localhost
+      when: ssh_result.failed
+
+    - name: Send Feishu message while ssh can't be connected 
+      uri:
+        url: "{{ feishu_url }}"
+        method: POST
+        headers:
+          Content-Type: application/json
+        body_format: json
+        body:
+          msg_type: interactive
+          card:
+            header:
+              title:
+                tag: plain_text
+                content: "Exception: can not connect to server"
+            elements:
+              - tag: div
+                text:
+                  content: |
+                    * name: {{ inventory_hostname }}  
+                    * host: {{ ansible_ssh_host }}:{{ ansible_ssh_port }}                 
+                    * content: SSH connection failed on {{ inventory_hostname }}. Please check.
+                  tag: lark_md
+
+        return_content: true
+      delegate_to: localhost
+      when: ssh_result.failed
+
+    - name: "Statistics Memory Utilization..."
+      shell: |
+        free -m | awk 'NR==2{p = $3*100/$2; if (p < 90) printf "Memory Usage: %s/%sMB (%.2f%%)\n", $3,$2,$3*100/$2; else printf "Memory is not enough, usage: %.2f%%\n", p}'
+        df -h | grep -vE '^文件系统|Filesystem|tmpfs|cdrom|loop' | awk '{ split($5,p,"%"); if (p[1]<99) print "Disk Usage:"" " $1 " " $3"/"$2" ""("$5")"; else printf "Disk space is not enough, %s, %s/%s, %s\n", $1,$3,$2,$5}'
+        top -bn1 | grep load | awk '{p=$(NF-2); if (p<90) printf "CPU Load: %.2f\n", $(NF-2); else printf "CPU load is high\n"}'
+        lsof | wc -l | awk '{fd=$(1); if (fd<2000000) printf "The number of file handlers: %d\n", $(1); else printf "The number of file handlers is high: %d\n", $(1)}'
+      register: result
+      ignore_errors: true
+    - debug: var=result
+
+    - name: Use ansible to send email through internal SMTP Server 
+      mail:
+        host: email-smtp.us-east-1.amazonaws.com
+        port: 587
+        username: {{ username.stdout }}
+        password: {{ password.stdout }}
+        subject: "{{ inventory_hostname }} alarm information" 
+        body: "{{ result.stdout_lines }}"
+        from: noreply@daspire.com
+        to:
+        - liweizhong@nekteck.com
+        cc: jerry <jerry-529@nekteck.com>
+      delegate_to: localhost
+      when: (result.stdout.find('Memory is not enough') != -1) or (result.stdout.find('Disk space is not enough') != -1) or (result.stdout.find('CPU load is high') != -1) or result.rc != 0
+
+    - name: Send Feishu message
+      uri:
+        url: "{{ feishu_url }}"
+        method: POST
+        headers:
+          Content-Type: application/json
+        body_format: json
+        body:
+          msg_type: interactive
+          card:
+            header:
+              title:
+                tag: plain_text
+                content: "Exception: the server resource is not enough"
+            elements:
+              - tag: div
+                text:
+                  content: |
+                    * name: {{ inventory_hostname }}  
+                    * host: {{ ansible_ssh_host }}                 
+                    * content: {{ result.stdout_lines }}
+                  tag: lark_md
+
+        return_content: true
+      when: (result.stdout.find('Memory is not enough') != -1) or (result.stdout.find('Disk space is not enough') != -1) or (result.stdout.find('CPU load is high') != -1) or (result.stdout.find('The number of file handlers is high') != -1) or result.rc != 0
