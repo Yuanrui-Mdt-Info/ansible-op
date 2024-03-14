@@ -8,14 +8,8 @@
     - name: Convert parameters
       set_fact:
         feishu_url: "{{ feishu_webhook_url }}"
-    
-    - name: Get username variable using shell
-      shell: echo $username
-      register: username
-
-    - name: Get password variable using shell
-      shell: echo $password
-      register: password
+        username: "{{ email_username }}"
+        password: "{{ email_password }}"
 
     - name: Test SSH connection
       wait_for_connection:
@@ -28,8 +22,8 @@
       mail:
         host: email-smtp.us-east-1.amazonaws.com
         port: 587
-        username: {{ username.stdout }}
-        password: {{ password.stdout }}
+        username: "{{ username }}"
+        password: "{{ password }}"
         subject: "SSH connection failed on {{ inventory_hostname }}"
         body: "SSH connection failed on {{ ansible_ssh_host }}:{{ ansible_ssh_port }}. Please check."
         from: noreply@daspire.com
@@ -81,8 +75,8 @@
       mail:
         host: email-smtp.us-east-1.amazonaws.com
         port: 587
-        username: {{ username.stdout }}
-        password: {{ password.stdout }}
+        username: "{{ username }}"
+        password: "{{ password }}"
         subject: "{{ inventory_hostname }} alarm information" 
         body: "{{ result.stdout_lines }}"
         from: noreply@daspire.com
