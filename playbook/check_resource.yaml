@@ -13,7 +13,7 @@
 
     - name: Test SSH connection
       wait_for_connection:
-        timeout: 10
+        timeout: 30
       register: ssh_result
       ignore_errors: true
     - debug: var=ssh_result
