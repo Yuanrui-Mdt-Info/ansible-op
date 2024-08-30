@@ -65,7 +65,7 @@
       shell: |
         free -m | awk 'NR==2{p = $3*100/$2; if (p < 90) printf "Memory Usage: %s/%sMB (%.2f%%)\n", $3,$2,$3*100/$2; else printf "Memory is not enough, usage: %.2f%%\n", p}'
         df -h | grep -vE '^文件系统|Filesystem|tmpfs|cdrom|loop' | awk '{ split($5,p,"%"); if (p[1]<99) print "Disk Usage:"" " $1 " " $3"/"$2" ""("$5")"; else printf "Disk space is not enough, %s, %s/%s, %s\n", $1,$3,$2,$5}'
-        top -bn1 | grep load | awk '{p=$(NF-2); if (p<12) printf "CPU Load: %.2f\n", $(NF-2); else printf "CPU load is high: $(NF-2)\n"}'
+        top -bn1 | grep load | awk '{p=$(NF-2); if (p<8) printf "CPU Load: %.2f\n", $(NF-2); else printf "CPU load is high\n"}'
         lsof | wc -l | awk '{fd=$(1); if (fd<2000000) printf "The number of file handlers: %d\n", $(1); else printf "The number of file handlers is high: %d\n", $(1)}'
       register: result
       ignore_errors: true
