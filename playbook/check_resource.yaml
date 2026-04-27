@@ -73,7 +73,7 @@
 
     - name: Use ansible to send email through internal SMTP Server 
       mail:
-        host: email-smtp.us-east-1.amazonaws.com
+        host: email-smtp.us-west-1.amazonaws.com
         port: 587
         username: "{{ username }}"
         password: "{{ password }}"
